@@ -1,5 +1,6 @@
 import pytest
-from app.models.schemas import CollectionCreate, QueryRequest, ChunkResult
+
+from app.models.schemas import ChunkResult, CollectionCreate, QueryRequest
 
 
 def test_collection_create_requires_name():
