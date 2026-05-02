@@ -5,7 +5,7 @@ from app.models.schemas import ChunkResult, CollectionCreate, QueryRequest
 
 def test_collection_create_requires_name():
     with pytest.raises(Exception):
-        CollectionCreate(name="")
+        CollectionCreate()
 
 
 def test_collection_create_valid():

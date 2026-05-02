@@ -18,5 +18,8 @@ class GeminiGenerator:
             f"Context:\n{context}\n\n"
             f"Question: {query}\n\nAnswer:"
         )
-        response = self._client.models.generate_content(model=self._model, contents=[prompt])
-        return response.text
+        response = self._client.models.generate_content(
+            model=self._model, contents=[prompt]
+        )
+
+        return "" if response.text is None else response.text
