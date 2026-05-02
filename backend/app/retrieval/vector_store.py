@@ -13,8 +13,8 @@ from qdrant_client.models import (
 
 
 class QdrantStore:
-    def __init__(self, path: str, embed_dim: int):
-        self._client = QdrantClient(path=path)
+    def __init__(self, url: str, embed_dim: int):
+        self._client = QdrantClient(url=url)
         self._embed_dim = embed_dim
 
     def _ensure_collection(self, collection_name: str) -> None:

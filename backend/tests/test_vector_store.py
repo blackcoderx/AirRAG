@@ -4,7 +4,7 @@ from app.retrieval.vector_store import QdrantStore
 
 @pytest.fixture
 def store():
-    return QdrantStore(path=":memory:", embed_dim=4)
+    return QdrantStore(url="http://localhost:6333", embed_dim=4)
 
 
 def test_upsert_and_search(store):

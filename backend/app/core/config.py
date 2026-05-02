@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     storage_dir: Path = Path("./storage")
-    qdrant_dir: Path = Path("./qdrant_data")
+    qdrant_url: str = "http://localhost:6333"
     database_url: str = "sqlite:///./airrag.db"
     gemini_embed_model: str = "gemini-embedding-exp-03-07"
     gemini_embed_dim: int = 3072

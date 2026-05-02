@@ -31,7 +31,7 @@ async def query_collection(
         api_key=settings.gemini_api_key, model=settings.gemini_embed_model
     )
     store = QdrantStore(
-        path=str(settings.qdrant_dir), embed_dim=settings.gemini_embed_dim
+        url=settings.qdrant_url, embed_dim=settings.gemini_embed_dim
     )
     generator = GeminiGenerator(
         api_key=settings.gemini_api_key, model=settings.gemini_gen_model

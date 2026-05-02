@@ -12,7 +12,7 @@ Query text/image → embed → vector search → generate answer (Gemini)
 ```
 
 - **Embeddings:** `gemini-embedding-exp-03-07` — text and images share a single 3072-dim vector space
-- **Vector store:** Qdrant running fully local (no external server, data persists in `./qdrant_data/`)
+- **Vector store:** Qdrant running in Docker (`docker compose up -d`)
 - **Metadata:** SQLite via SQLAlchemy (`./airrag.db`)
 - **Generation:** `gemini-2.0-flash` with grounded prompts (answers only from retrieved context)
 
@@ -36,7 +36,10 @@ cp .env.example .env
 # 2. Install dependencies
 uv sync
 
-# 3. Start the server
+# 3. Start Qdrant (requires Docker)
+docker compose up -d
+
+# 4. Start the server
 uv run uvicorn main:app --reload --port 8000
 ```
 
@@ -161,7 +164,7 @@ All settings are read from environment variables (or a `.env` file):
 | `GEMINI_EMBED_MODEL` | `gemini-embedding-exp-03-07` | Embedding model |
 | `GEMINI_EMBED_DIM` | `3072` | Embedding vector size |
 | `GEMINI_GEN_MODEL` | `gemini-2.0-flash` | Generation model |
-| `QDRANT_DIR` | `./qdrant_data` | Qdrant persistence directory |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant server URL |
 | `DATABASE_URL` | `sqlite:///./airrag.db` | SQLite metadata database |
 | `STORAGE_DIR` | `./storage` | Raw file storage (future use) |
 
@@ -169,11 +172,18 @@ All settings are read from environment variables (or a `.env` file):
 
 ## Docker
 
+Qdrant runs as a separate container managed by `docker-compose.yml`:
+
 ```bash
+# Start Qdrant
+docker compose up -d
+
+# Build and run the backend (connects to Qdrant on the Docker network)
 docker build -t airrag .
 docker run -p 8000:8000 \
+  --network backend_default \
   -e GEMINI_API_KEY=your_key \
-  -v $(pwd)/qdrant_data:/app/qdrant_data \
+  -e QDRANT_URL=http://airrag-qdrant:6333 \
   -v $(pwd)/airrag.db:/app/airrag.db \
   airrag
 ```
