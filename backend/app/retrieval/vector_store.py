@@ -1,13 +1,14 @@
 import uuid
+
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
-    VectorParams,
-    PointStruct,
-    Filter,
     FieldCondition,
-    MatchValue,
+    Filter,
     FilterSelector,
+    MatchValue,
+    PointStruct,
+    VectorParams,
 )
 
 
@@ -21,7 +22,9 @@ class QdrantStore:
         if not self._client.collection_exists(collection_name):
             self._client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=self._embed_dim, distance=Distance.COSINE),
+                vectors_config=VectorParams(
+                    size=self._embed_dim, distance=Distance.COSINE
+                ),
             )
 
     def upsert(
@@ -41,7 +44,9 @@ class QdrantStore:
                 # Store the raw text/label alongside caller metadata so search results are self-contained
                 payload={"chunk_id": chunk_id, "document": doc, **meta},
             )
-            for chunk_id, embedding, doc, meta in zip(chunk_ids, embeddings, documents, metadatas)
+            for chunk_id, embedding, doc, meta in zip(
+                chunk_ids, embeddings, documents, metadatas
+            )
         ]
         self._client.upsert(collection_name=collection_name, points=points, wait=True)
 
@@ -65,10 +70,18 @@ class QdrantStore:
         )
         return [
             {
-                "chunk_id": r.payload.get("chunk_id"),
-                "document": r.payload.get("document"),
+                "chunk_id": r.payload.get("chunk_id")
+                if r.payload is not None
+                else None,
+                "document": r.payload.get("document")
+                if r.payload is not None
+                else None,
                 # Strip internal keys so callers only see the original metadata fields
-                "metadata": {k: v for k, v in r.payload.items() if k not in ("chunk_id", "document")},
+                "metadata": {
+                    k: v
+                    for k, v in (r.payload or {}).items()
+                    if k not in ("chunk_id", "document")
+                },
                 "score": r.score,
             }
             for r in response.points
@@ -82,7 +95,11 @@ class QdrantStore:
             collection_name=collection_name,
             points_selector=FilterSelector(
                 filter=Filter(
-                    must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))]
+                    must=[
+                        FieldCondition(
+                            key="document_id", match=MatchValue(value=document_id)
+                        )
+                    ]
                 )
             ),
             wait=True,
