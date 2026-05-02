@@ -15,6 +15,7 @@ class Base(DeclarativeBase):
 
 
 def get_db():
+    # FastAPI dependency: yields a DB session per request, always closes on exit
     db = SessionLocal()
     try:
         yield db

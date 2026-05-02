@@ -8,6 +8,7 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 
 
 def _to_response(coll: Collection, db: Session) -> CollectionResponse:
+    # Live count query so document_count stays accurate even after deletions
     doc_count = db.query(Document).filter(Document.collection_id == coll.id).count()
     return CollectionResponse(
         id=coll.id,

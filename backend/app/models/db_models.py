@@ -6,6 +6,7 @@ from app.core.database import Base
 
 
 def _uuid() -> str:
+    # Generates a random UUID string used as the default primary key for both models
     return str(uuid.uuid4())
 
 

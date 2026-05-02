@@ -8,6 +8,7 @@ class GeminiEmbedder:
         self._model = model
 
     def embed_text(self, text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list[float]:
+        # task_type tells Gemini whether this is a document being stored or a query being searched
         response = self._client.models.embed_content(
             model=self._model,
             contents=[text],
@@ -16,9 +17,11 @@ class GeminiEmbedder:
         return list(response.embeddings[0].values)
 
     def embed_texts(self, texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT") -> list[list[float]]:
+        # Embeds each text individually; Gemini has no batch endpoint so this calls the API once per chunk
         return [self.embed_text(t, task_type) for t in texts]
 
     def embed_image(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> list[float]:
+        # Images are embedded into the same 3072-dim vector space as text — enabling cross-modal retrieval
         response = self._client.models.embed_content(
             model=self._model,
             contents=[
@@ -30,9 +33,11 @@ class GeminiEmbedder:
         return list(response.embeddings[0].values)
 
     def embed_query(self, text: str) -> list[float]:
+        # RETRIEVAL_QUERY optimises the vector for similarity search rather than storage
         return self.embed_text(text, task_type="RETRIEVAL_QUERY")
 
     def embed_image_query(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> list[float]:
+        # Same as embed_image but tagged as a query so Gemini adjusts the embedding direction
         response = self._client.models.embed_content(
             model=self._model,
             contents=[

@@ -12,6 +12,7 @@ router = APIRouter(prefix="/collections/{collection_id}/documents", tags=["docum
 
 
 def _make_ingestor() -> Ingestor:
+    # Builds a fresh Ingestor per request; Qdrant local client is cheap to construct
     embedder = GeminiEmbedder(api_key=settings.gemini_api_key, model=settings.gemini_embed_model)
     store = QdrantStore(path=str(settings.qdrant_dir), embed_dim=settings.gemini_embed_dim)
     return Ingestor(embedder=embedder, vector_store=store)
