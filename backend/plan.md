@@ -427,7 +427,7 @@ git commit -m "feat: add MinIO blob storage client with upload/delete"
 - Create: `backend/app/ingestion/vision_enricher.py`
 - Create: `backend/tests/test_vision_enricher.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Create `backend/tests/test_vision_enricher.py`:
 ```python
@@ -474,14 +474,14 @@ def test_describe_passes_blob_to_model():
         assert call_kwargs[1]["model"] == "gemini-2.0-flash"
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```
 cd backend && uv run pytest tests/test_vision_enricher.py -v
 ```
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.ingestion.vision_enricher'`
 
-- [ ] **Step 3: Create vision_enricher.py**
+- [x] **Step 3: Create vision_enricher.py**
 
 Create `backend/app/ingestion/vision_enricher.py`:
 ```python
@@ -521,14 +521,14 @@ class VisionEnricher:
         return response.text or ""
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```
 cd backend && uv run pytest tests/test_vision_enricher.py -v
 ```
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/ingestion/vision_enricher.py backend/tests/test_vision_enricher.py
@@ -543,7 +543,7 @@ git commit -m "feat: add VisionEnricher using Gemini Flash for image/video descr
 - Create: `backend/app/ingestion/pdf_chunker.py`
 - Create: `backend/tests/test_pdf_chunker.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Create `backend/tests/test_pdf_chunker.py`:
 ```python
@@ -594,14 +594,14 @@ def test_chunk_bytes_are_valid_pdf():
     assert len(reader.pages) == 4
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```
 cd backend && uv run pytest tests/test_pdf_chunker.py -v
 ```
 Expected: FAIL — `ModuleNotFoundError`
 
-- [ ] **Step 3: Create pdf_chunker.py**
+- [x] **Step 3: Create pdf_chunker.py**
 
 Create `backend/app/ingestion/pdf_chunker.py`:
 ```python
@@ -630,14 +630,14 @@ class PDFChunker:
         return result
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```
 cd backend && uv run pytest tests/test_pdf_chunker.py -v
 ```
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/ingestion/pdf_chunker.py backend/tests/test_pdf_chunker.py
