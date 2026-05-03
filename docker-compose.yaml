@@ -8,5 +8,28 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  airrag-minio:
+    image: minio/minio:latest
+    container_name: airrag-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+
+  airrag-whisper:
+    image: hwdsl2/whisper-server:latest
+    container_name: airrag-whisper
+    ports:
+      - "9010:9000"
+    volumes:
+      - whisper_models:/root/.cache/whisper
+
 volumes:
   qdrant_data:
+  minio_data:
+  whisper_models:

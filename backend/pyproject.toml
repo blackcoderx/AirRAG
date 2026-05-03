@@ -17,6 +17,9 @@ dependencies = [
     "pillow>=11.0.0",
     "aiofiles>=24.0.0",
     "python-dotenv>=1.0.0",
+    "minio>=7.2.0",
+    "pypdf>=4.0.0",
+    "httpx>=0.28.0",
 ]
 
 [build-system]
