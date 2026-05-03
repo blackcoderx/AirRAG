@@ -1506,7 +1506,7 @@ git commit -m "feat: rewrite Ingestor with full multimodal pipeline (image/pdf/a
 - Modify: `backend/app/api/documents.py`
 - Modify: `backend/app/api/query.py`
 
-- [ ] **Step 1: Update documents.py — wire all new Ingestor dependencies**
+- [x] **Step 1: Update documents.py — wire all new Ingestor dependencies**
 
 Replace `_make_ingestor` and the delete route in `backend/app/api/documents.py`:
 
@@ -1614,7 +1614,7 @@ def delete_document(
     db.commit()
 ```
 
-- [ ] **Step 2: Update query.py — map new payload fields into ChunkResult**
+- [x] **Step 2: Update query.py — map new payload fields into ChunkResult**
 
 Replace `backend/app/api/query.py` with:
 ```python
@@ -1681,21 +1681,21 @@ async def query_collection(
     return QueryResponse(answer=answer, sources=sources)
 ```
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 ```
 cd backend && uv run pytest tests/ -v --ignore=tests/test_deps.py
 ```
 Expected: All existing + new tests PASS. (Note: test_api.py tests that call `_make_ingestor` will fail if MinIO is not running — those are integration tests. Skip with `-k "not test_api"` if running without Docker.)
 
-- [ ] **Step 4: Run just the unit tests**
+- [x] **Step 4: Run just the unit tests**
 
 ```
 cd backend && uv run pytest tests/ -v -k "not test_api and not test_vector_store"
 ```
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/api/documents.py backend/app/api/query.py
