@@ -42,7 +42,7 @@ def _make_ingestor() -> Ingestor:
             public_url=settings.minio_public_url,
         ),
         vision_enricher=VisionEnricher(api_key=settings.gemini_api_key, model=settings.gemini_gen_model),
-        audio_processor=AudioProcessor(whisper_url=settings.whisper_server_url),
+        audio_processor=AudioProcessor(),
         video_processor=VideoProcessor(),
         pdf_chunker=PDFChunker(),
     )
