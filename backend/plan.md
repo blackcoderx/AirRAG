@@ -186,7 +186,7 @@ git commit -m "feat: add minio/pypdf/httpx deps, ffmpeg to Dockerfile, MinIO+Whi
 - Modify: `backend/.env.example`
 - Modify: `backend/tests/test_config.py`
 
-- [ ] **Step 1: Write failing config tests**
+- [x] **Step 1: Write failing config tests**
 
 Open `backend/tests/test_config.py` and add at the end:
 ```python
@@ -204,14 +204,14 @@ def test_whisper_defaults():
     assert s.whisper_server_url == "http://localhost:9010"
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```
 cd backend && uv run pytest tests/test_config.py -v
 ```
 Expected: FAIL — `AttributeError: 'Settings' object has no attribute 'minio_endpoint'`
 
-- [ ] **Step 3: Update config.py**
+- [x] **Step 3: Update config.py**
 
 Replace `backend/app/core/config.py` with:
 ```python
@@ -245,7 +245,7 @@ class Settings(BaseSettings):
 settings = Settings()
 ```
 
-- [ ] **Step 4: Update .env.example**
+- [x] **Step 4: Update .env.example**
 
 Replace `backend/.env.example` with:
 ```
@@ -267,14 +267,14 @@ MINIO_PUBLIC_URL=http://localhost:9000
 WHISPER_SERVER_URL=http://localhost:9010
 ```
 
-- [ ] **Step 5: Run config tests**
+- [x] **Step 5: Run config tests**
 
 ```
 cd backend && uv run pytest tests/test_config.py -v
 ```
 Expected: PASS (all 4 tests)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/core/config.py backend/.env.example backend/tests/test_config.py
