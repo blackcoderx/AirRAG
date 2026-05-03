@@ -989,7 +989,7 @@ git commit -m "feat: add VideoProcessor with ffmpeg chunking and audio extractio
 - Modify: `backend/app/ingestion/embedder.py`
 - Modify: `backend/tests/test_embedder.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Append to `backend/tests/test_embedder.py`:
 ```python
@@ -1029,14 +1029,14 @@ def test_embed_pdf_chunk_returns_vector():
         assert result == [0.7, 0.8, 0.9]
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```
 cd backend && uv run pytest tests/test_embedder.py -v
 ```
 Expected: 3 new tests FAIL — `AttributeError: 'GeminiEmbedder' has no attribute 'embed_audio'`
 
-- [ ] **Step 3: Add methods to embedder.py**
+- [x] **Step 3: Add methods to embedder.py**
 
 Append to the `GeminiEmbedder` class in `backend/app/ingestion/embedder.py`:
 ```python
@@ -1069,14 +1069,14 @@ Append to the `GeminiEmbedder` class in `backend/app/ingestion/embedder.py`:
         return self.embed_bytes(pdf_bytes, "application/pdf")
 ```
 
-- [ ] **Step 4: Run all embedder tests**
+- [x] **Step 4: Run all embedder tests**
 
 ```
 cd backend && uv run pytest tests/test_embedder.py -v
 ```
 Expected: PASS (all 6 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/ingestion/embedder.py backend/tests/test_embedder.py
@@ -1091,7 +1091,7 @@ git commit -m "feat: add embed_bytes/audio/video/pdf_chunk to GeminiEmbedder"
 - Modify: `backend/app/models/schemas.py`
 - Modify: `backend/tests/test_schemas.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Append to `backend/tests/test_schemas.py`:
 ```python
@@ -1126,14 +1126,14 @@ def test_chunk_result_optional_fields_default_to_none():
     assert chunk.page_start is None
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```
 cd backend && uv run pytest tests/test_schemas.py -v
 ```
 Expected: FAIL — `ChunkResult` missing fields
 
-- [ ] **Step 3: Update schemas.py**
+- [x] **Step 3: Update schemas.py**
 
 Replace the `ChunkResult` class in `backend/app/models/schemas.py`:
 ```python
@@ -1152,14 +1152,14 @@ class ChunkResult(BaseModel):
     page_end: Optional[int] = None
 ```
 
-- [ ] **Step 4: Run all schema tests**
+- [x] **Step 4: Run all schema tests**
 
 ```
 cd backend && uv run pytest tests/test_schemas.py -v
 ```
 Expected: PASS (all tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/models/schemas.py backend/tests/test_schemas.py
@@ -1174,7 +1174,7 @@ git commit -m "feat: extend ChunkResult schema with blob_url, timestamps, vision
 - Modify: `backend/app/ingestion/ingestor.py`
 - Create: `backend/tests/test_ingestor.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Create `backend/tests/test_ingestor.py`:
 ```python
@@ -1291,14 +1291,14 @@ def test_delete_document_removes_from_store_and_minio():
     minio.delete.assert_called_once_with("doc1/photo.jpg")
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```
 cd backend && uv run pytest tests/test_ingestor.py -v
 ```
 Expected: FAIL — import errors and wrong Ingestor signature
 
-- [ ] **Step 3: Rewrite ingestor.py**
+- [x] **Step 3: Rewrite ingestor.py**
 
 Replace `backend/app/ingestion/ingestor.py` with:
 ```python
@@ -1484,14 +1484,14 @@ class Ingestor:
                 pass
 ```
 
-- [ ] **Step 4: Run ingestor tests**
+- [x] **Step 4: Run ingestor tests**
 
 ```
 cd backend && uv run pytest tests/test_ingestor.py -v
 ```
 Expected: PASS (7 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/ingestion/ingestor.py backend/tests/test_ingestor.py
