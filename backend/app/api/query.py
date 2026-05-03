@@ -27,40 +27,35 @@ async def query_collection(
     if not text and not image:
         raise HTTPException(status_code=400, detail="Provide text or image for query")
 
-    embedder = GeminiEmbedder(
-        api_key=settings.gemini_api_key, model=settings.gemini_embed_model
-    )
-    store = QdrantStore(
-        url=settings.qdrant_url, embed_dim=settings.gemini_embed_dim
-    )
-    generator = GeminiGenerator(
-        api_key=settings.gemini_api_key, model=settings.gemini_gen_model
-    )
+    embedder = GeminiEmbedder(api_key=settings.gemini_api_key, model=settings.gemini_embed_model)
+    store = QdrantStore(url=settings.qdrant_url, embed_dim=settings.gemini_embed_dim)
+    generator = GeminiGenerator(api_key=settings.gemini_api_key, model=settings.gemini_gen_model)
 
     if image:
         image_bytes = await image.read()
-        query_embedding = embedder.embed_image_query(
-            image_bytes, image.content_type or "image/jpeg"
-        )
+        query_embedding = embedder.embed_image_query(image_bytes, image.content_type or "image/jpeg")
         query_text = text or "[IMAGE QUERY]"
     else:
         query_embedding = embedder.embed_query(text or "")
         query_text = text
 
-    results = store.search(
-        collection_name=collection_id, query_embedding=query_embedding, top_k=top_k
-    )
+    results = store.search(collection_name=collection_id, query_embedding=query_embedding, top_k=top_k)
     sources = [
         ChunkResult(
-            document_id=r["metadata"]["document_id"],
-            filename=r["metadata"]["filename"],
-            content=r["document"],
-            content_type=r["metadata"]["content_type"],
+            document_id=r["metadata"].get("document_id", ""),
+            filename=r["metadata"].get("filename", ""),
+            content=r["document"] or "",
+            content_type=r["metadata"].get("media_type", "text"),
+            media_type=r["metadata"].get("media_type", "text"),
             score=r["score"],
+            blob_url=r["metadata"].get("blob_url"),
+            chunk_start_sec=r["metadata"].get("chunk_start_sec"),
+            chunk_end_sec=r["metadata"].get("chunk_end_sec"),
+            vision_description=r["metadata"].get("vision_description"),
+            page_start=r["metadata"].get("page_start"),
+            page_end=r["metadata"].get("page_end"),
         )
         for r in results
     ]
-    answer = generator.generate(
-        query=query_text or "", context_chunks=[r["document"] for r in results]
-    )
+    answer = generator.generate(query=query_text or "", context_chunks=[r["document"] for r in results])
     return QueryResponse(answer=answer, sources=sources)
