@@ -27,7 +27,7 @@ services:
     ports:
       - "9010:9000"
     volumes:
-      - whisper_models:/root/.cache/whisper
+      - whisper_models:/var/lib/whisper
 
 volumes:
   qdrant_data:
