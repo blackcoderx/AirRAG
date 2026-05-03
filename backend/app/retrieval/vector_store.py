@@ -13,7 +13,17 @@ from qdrant_client.models import (
 
 
 class QdrantStore:
+    """Wraps Qdrant vector database for storing and searching embeddings.
+
+    All embeddings (text, images, PDF, audio, video) are stored in the same
+    3072-dim vector space, enabling cross-modal retrieval.
+
+    Used by: ingestor.py (store embeddings), query.py (search embeddings).
+    Related: embedder.py (generates the vectors stored here).
+    """
+
     def __init__(self, url: str, embed_dim: int):
+        "Initialize Qdrant client (supports :memory: for testing)."
         if url == ":memory:":
             self._client = QdrantClient(":memory:")
         else:
@@ -21,7 +31,10 @@ class QdrantStore:
         self._embed_dim = embed_dim
 
     def _ensure_collection(self, collection_name: str) -> None:
-        # Creates the Qdrant collection on first use; cosine distance matches the Gemini embedding space
+        """Create Qdrant collection on first use (cosine distance = Gemini embedding space).
+
+        Cosine similarity is the standard for Gemini embeddings.
+        """
         if not self._client.collection_exists(collection_name):
             self._client.create_collection(
                 collection_name=collection_name,
@@ -38,13 +51,14 @@ class QdrantStore:
         documents: list[str],
         metadatas: list[dict],
     ) -> None:
+        """Store embeddings with metadata in Qdrant."""
         self._ensure_collection(collection_name)
         points = [
             PointStruct(
-                # uuid5 derives a deterministic UUID from the string chunk_id, making re-ingestion idempotent
+                # uuid5 derives deterministic UUID from string, making re-ingestion idempotent
                 id=str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk_id)),
                 vector=embedding,
-                # Store the raw text/label alongside caller metadata so search results are self-contained
+                # Store raw text alongside caller metadata so search results are self-contained
                 payload={"chunk_id": chunk_id, "document": doc, **meta},
             )
             for chunk_id, embedding, doc, meta in zip(
@@ -59,12 +73,17 @@ class QdrantStore:
         query_embedding: list[float],
         top_k: int = 5,
     ) -> list[dict]:
+        """Search for similar vectors in Qdrant.
+
+        Returns: List of dicts with chunk_id, document text, metadata, and score.
+        Used by: query.py (after embedding user's query).
+        """
         if not self._client.collection_exists(collection_name):
             return []
         count = self._client.count(collection_name).count
         if count == 0:
             return []
-        # min(top_k, count) prevents requesting more results than exist, which errors in some qdrant versions
+        # min(top_k, count) prevents requesting more results than exist
         response = self._client.query_points(
             collection_name=collection_name,
             query=query_embedding,
@@ -79,7 +98,7 @@ class QdrantStore:
                 "document": r.payload.get("document")
                 if r.payload is not None
                 else None,
-                # Strip internal keys so callers only see the original metadata fields
+                # Strip internal keys so callers only see original metadata fields
                 "metadata": {
                     k: v
                     for k, v in (r.payload or {}).items()

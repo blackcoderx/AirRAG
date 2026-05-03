@@ -22,15 +22,28 @@ async def query_collection(
     top_k: int = Form(5),
     db: Session = Depends(get_db),
 ):
+    """Query a collection using text and/or image, return grounded answer + sources.
+
+    Flow:
+    1. Validate collection exists
+    2. Embed query (text → embed_query, image → embed_image_query)
+    3. Search Qdrant for top-K similar vectors
+    4. Generate grounded answer using Gemini (context from search results)
+    5. Return answer + source citations (with metadata like page numbers, timestamps)
+
+    Cross-modal: Text query can find images, image query can find text.
+    """
     if not db.get(Collection, collection_id):
         raise HTTPException(status_code=404, detail="Collection not found")
     if not text and not image:
         raise HTTPException(status_code=400, detail="Provide text or image for query")
 
+    # Per-request construction (stateless architecture)
     embedder = GeminiEmbedder(api_key=settings.gemini_api_key, model=settings.gemini_embed_model)
     store = QdrantStore(url=settings.qdrant_url, embed_dim=settings.gemini_embed_dim)
     generator = GeminiGenerator(api_key=settings.gemini_api_key, model=settings.gemini_gen_model)
 
+    # Embed query based on type (text or image)
     if image:
         image_bytes = await image.read()
         query_embedding = embedder.embed_image_query(image_bytes, image.content_type or "image/jpeg")
@@ -39,7 +52,10 @@ async def query_collection(
         query_embedding = embedder.embed_query(text or "")
         query_text = text
 
+    # Vector search in Qdrant (returns top-K similar chunks with scores)
     results = store.search(collection_name=collection_id, query_embedding=query_embedding, top_k=top_k)
+
+    # Convert Qdrant results to ChunkResult schema (handles different media types)
     sources = [
         ChunkResult(
             document_id=r["metadata"].get("document_id", ""),
@@ -57,5 +73,7 @@ async def query_collection(
         )
         for r in results
     ]
+
+    # Generate grounded answer (only from retrieved context, preventing hallucination)
     answer = generator.generate(query=query_text or "", context_chunks=[r["document"] for r in results])
     return QueryResponse(answer=answer, sources=sources)

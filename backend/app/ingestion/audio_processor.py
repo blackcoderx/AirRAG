@@ -9,6 +9,11 @@ import httpx
 
 @dataclass
 class AudioChunk:
+    """Represents a segment of audio with transcript.
+
+    Used by: ingestor.py (_ingest_audio) to pass to embedder and metadata storage.
+    """
+
     data: bytes
     mime_type: str
     start_sec: int
@@ -17,27 +22,55 @@ class AudioChunk:
 
 
 class AudioProcessor:
+    "Processes audio files: segments into chunks, transcribes each via Whisper."
+
+    # 170-second chunks with 10-second overlap (Whisper works best on shorter segments)
     _CHUNK_DURATION = 170
     _OVERLAP = 10
 
     def __init__(self, whisper_url: str):
+        """Initialize with local Whisper server URL (e.g., http://localhost:9010)."""
         self._whisper_url = whisper_url.rstrip("/")
 
     def _get_duration(self, input_path: str) -> float:
+        """Get audio/video duration in seconds using ffprobe."""
         result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", input_path],
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                input_path,
+            ],
             capture_output=True,
             text=True,
             check=True,
         )
         return float(json.loads(result.stdout)["format"]["duration"])
 
-    def _extract_segment(self, input_path: str, start: int, end: int, suffix: str) -> bytes:
+    def _extract_segment(
+        self, input_path: str, start: int, end: int, suffix: str
+    ) -> bytes:
+        "Extract a time segment from audio file using ffmpeg."
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as out:
             out_path = out.name
         try:
             subprocess.run(
-                ["ffmpeg", "-y", "-i", input_path, "-ss", str(start), "-to", str(end), "-c", "copy", out_path],
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    input_path,
+                    "-ss",
+                    str(start),
+                    "-to",
+                    str(end),
+                    "-c",
+                    "copy",
+                    out_path,
+                ],
                 capture_output=True,
                 check=True,
             )
@@ -47,6 +80,7 @@ class AudioProcessor:
             os.unlink(out_path)
 
     def transcribe(self, audio_bytes: bytes, suffix: str = ".mp3") -> str:
+        "Transcribe audio bytes using local Whisper server."
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
             f.write(audio_bytes)
             tmp_path = f.name
@@ -64,6 +98,7 @@ class AudioProcessor:
             os.unlink(tmp_path)
 
     def process(self, audio_bytes: bytes, mime_type: str) -> list[AudioChunk]:
+        "Process audio file: segment into chunks, transcribe each, return AudioChunks.."
         suffix = ".mp3" if "mp3" in mime_type else ".wav"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
             f.write(audio_bytes)

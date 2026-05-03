@@ -1,16 +1,17 @@
 import io
-import os
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from llama_index.core.node_parser import SentenceSplitter
-from markitdown import MarkItDown
-from PIL import Image
 
 
 @dataclass
 class TextChunk:
+    """Represents a chunk of text ready for embedding.
+
+    Used by: ingestor.py (_ingest_text, _ingest_pdf) to pass to embedder.
+    """
+
     text: str
     source_id: str
     chunk_index: int
@@ -18,20 +19,40 @@ class TextChunk:
 
 @dataclass
 class ImageChunk:
+    """Represents a validated image ready for embedding.
+
+    Used by: ingestor.py (_ingest_image) to pass to embedder.
+    """
+
     image_bytes: bytes
     mime_type: str
     source_id: str
 
 
 class DocumentParser:
+    """Handles text chunking (TXT/MD) and image validation.
+
+    Related files:
+    - Note: DOCX/PPTX now converted to PDF via converter.py
+    """
+
     def __init__(self, chunk_size: int = 512, chunk_overlap: int = 64):
+        """Initialize with LlamaIndex SentenceSplitter for semantic text chunking.
+
+        Args:
+            chunk_size: Target tokens per chunk (512 ≈ 400-500 words)
+            chunk_overlap: Overlapping tokens between chunks (preserves context)
+        """
         self._splitter = SentenceSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap
         )
-        self._converter = MarkItDown()
 
     def parse_text(self, text: str, source_id: str) -> list[TextChunk]:
-        # LIDoc import is deferred to avoid a slow top-level import at server startup
+        """Split text into semantic chunks using LlamaIndex SentenceSplitter.
+
+        Used for: TXT and Markdown files (read as string, then chunked).
+        Note: Gemini can embed plain text directly, chunking is for handling >8192 tokens.
+        """
         from llama_index.core.schema import Document as LIDoc
 
         nodes = self._splitter.get_nodes_from_documents([LIDoc(text=text)])
@@ -43,22 +64,25 @@ class DocumentParser:
     def parse_document_bytes(
         self, content: bytes, filename: str, source_id: str
     ) -> list[TextChunk]:
-        # markitdown requires a real file path, so we write to a temp file preserving the original extension
-        suffix = Path(filename).suffix
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
-            f.write(content)
-            tmp_path = f.name
-        try:
-            result = self._converter.convert(tmp_path)
-            return self.parse_text(result.text_content or "", source_id)
-        finally:
-            # Always clean up the temp file even if conversion or chunking fails
-            os.unlink(tmp_path)
+        """Parse text files (TXT/MD) by decoding bytes to string, then chunking.
+
+        Note: DOCX/PPTX are no longer handled here - they go through converter.py first.
+        PDF chunks are handled separately in ingestor.py using embed_pdf_chunk().
+        """
+        suffix = Path(filename).suffix.lower()
+        if suffix in {".txt", ".md", ".markdown"}:
+            return self.parse_text(content.decode("utf-8", errors="replace"), source_id)
+        raise ValueError(f"Unsupported text format: {suffix}")
 
     def parse_image(
         self, image_bytes: bytes, mime_type: str, source_id: str
     ) -> list[ImageChunk]:
-        # verify() validates the image header without fully decoding it; raises on corrupt data
+        """Validate image integrity using Pillow (not parsing - Gemini handles actual embedding).
+
+        Used by: ingestor.py (_ingest_image) before sending to embedder.embed_image().
+        """
+        from PIL import Image
+
         Image.open(io.BytesIO(image_bytes)).verify()
         return [
             ImageChunk(

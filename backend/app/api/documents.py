@@ -18,6 +18,18 @@ router = APIRouter(prefix="/collections/{collection_id}/documents", tags=["docum
 
 
 def _make_ingestor() -> Ingestor:
+    """Factory function that creates a fresh Ingestor per request (stateless architecture).
+    
+    Each ingestion gets its own:
+    - GeminiEmbedder (for creating embeddings)
+    - QdrantStore (for vector storage)
+    - MinIOClient (for raw file storage)
+    - VisionEnricher (for image/video descriptions)
+    - Audio/Video processors (for media chunking)
+    - PDFChunker (for splitting PDFs into 6-page segments)
+    
+    This per-request construction keeps the API layer stateless.
+    """
     return Ingestor(
         embedder=GeminiEmbedder(api_key=settings.gemini_api_key, model=settings.gemini_embed_model),
         vector_store=QdrantStore(url=settings.qdrant_url, embed_dim=settings.gemini_embed_dim),
@@ -42,6 +54,15 @@ async def upload_document(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    """Upload and ingest a document into a collection.
+    
+    Flow:
+    1. Validate collection exists
+    2. Create Document record with "processing" status
+    3. Read file bytes and content type
+    4. Run ingestion pipeline (parse → embed → store in Qdrant + MinIO)
+    5. Update status to "ready" with chunk_count, or "error" on failure
+    """
     coll = db.get(Collection, collection_id)
     if not coll:
         raise HTTPException(status_code=404, detail="Collection not found")
@@ -62,7 +83,7 @@ async def upload_document(
         chunk_count = _make_ingestor().ingest(
             collection_id=collection_id,
             document_id=doc.id,
-            filename=file.filename or "",
+            filename=file.filename,
             content_type=content_type,
             content=content,
         )
@@ -84,6 +105,7 @@ async def upload_document(
 
 @router.get("", response_model=list[DocumentResponse])
 def list_documents(collection_id: str, db: Session = Depends(get_db)):
+    """List all documents in a collection."""
     if not db.get(Collection, collection_id):
         raise HTTPException(status_code=404, detail="Collection not found")
     return db.query(Document).filter(Document.collection_id == collection_id).all()
@@ -93,6 +115,7 @@ def list_documents(collection_id: str, db: Session = Depends(get_db)):
 def delete_document(
     collection_id: str, document_id: str, db: Session = Depends(get_db)
 ):
+    """Delete a document (removes from DB, Qdrant vectors, and MinIO storage)."""
     doc = db.get(Document, document_id)
     if not doc or doc.collection_id != collection_id:
         raise HTTPException(status_code=404, detail="Document not found")

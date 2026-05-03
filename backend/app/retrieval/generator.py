@@ -2,11 +2,28 @@ from google import genai
 
 
 class GeminiGenerator:
+    """Wraps Gemini model for grounded answer generation (RAG synthesis).
+
+    Takes retrieved context chunks and generates a factual answer based ONLY on that context.
+    This prevents hallucination from the model's training data.
+
+    """
+
     def __init__(self, api_key: str, model: str):
+        """Initialize Gemini client for text generation.
+
+        Model: gemini-2.0-flash (fast multimodal generation).
+        """
         self._client = genai.Client(api_key=api_key)
         self._model = model
 
     def generate(self, query: str, context_chunks: list[str]) -> str:
+        """Generate grounded answer from retrieved context chunks.
+
+        Args:
+            query: User's question
+            context_chunks: Text chunks retrieved from Qdrant (ranked by similarity)
+        """
         if not context_chunks:
             return "No relevant information found in the knowledge base."
         # Separators make chunk boundaries explicit so the model doesn't blend adjacent chunks
