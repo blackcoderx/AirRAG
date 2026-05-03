@@ -41,7 +41,14 @@ class ChunkResult(BaseModel):
     filename: str
     content: str
     content_type: str
+    media_type: str
     score: float
+    blob_url: Optional[str] = None
+    chunk_start_sec: Optional[float] = None
+    chunk_end_sec: Optional[float] = None
+    vision_description: Optional[str] = None
+    page_start: Optional[int] = None
+    page_end: Optional[int] = None
 
 
 class QueryResponse(BaseModel):
