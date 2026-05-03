@@ -80,3 +80,31 @@ class GeminiEmbedder:
             if response.embeddings and response.embeddings[0].values
             else []
         )
+
+    def embed_bytes(self, data: bytes, mime_type: str) -> list[float]:
+        response = self._client.models.embed_content(
+            model=self._model,
+            contents=[
+                types.Content(
+                    parts=[
+                        types.Part(
+                            inline_data=types.Blob(mime_type=mime_type, data=data)
+                        )
+                    ]
+                )
+            ],
+        )
+        return list(
+            response.embeddings[0].values
+            if response.embeddings and response.embeddings[0].values
+            else []
+        )
+
+    def embed_audio(self, audio_bytes: bytes, mime_type: str = "audio/mpeg") -> list[float]:
+        return self.embed_bytes(audio_bytes, mime_type)
+
+    def embed_video(self, video_bytes: bytes, mime_type: str = "video/mp4") -> list[float]:
+        return self.embed_bytes(video_bytes, mime_type)
+
+    def embed_pdf_chunk(self, pdf_bytes: bytes) -> list[float]:
+        return self.embed_bytes(pdf_bytes, "application/pdf")

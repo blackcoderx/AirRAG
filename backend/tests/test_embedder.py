@@ -40,3 +40,42 @@ def test_embed_image_calls_api():
         result = embedder.embed_image(b"fake_bytes", "image/jpeg")
         assert result == [0.5, 0.6]
         mock_client.models.embed_content.assert_called_once()
+
+
+def test_embed_audio_returns_vector():
+    with patch("app.ingestion.embedder.genai.Client") as MockClient:
+        mock_response = MagicMock()
+        mock_response.embeddings = [MagicMock(values=[0.1, 0.2, 0.3])]
+        MockClient.return_value.models.embed_content.return_value = mock_response
+
+        from app.ingestion.embedder import GeminiEmbedder
+        embedder = GeminiEmbedder(api_key="fake", model="gemini-embedding-2")
+        result = embedder.embed_audio(b"fakeaudio", "audio/mpeg")
+
+        assert result == [0.1, 0.2, 0.3]
+
+
+def test_embed_video_returns_vector():
+    with patch("app.ingestion.embedder.genai.Client") as MockClient:
+        mock_response = MagicMock()
+        mock_response.embeddings = [MagicMock(values=[0.4, 0.5, 0.6])]
+        MockClient.return_value.models.embed_content.return_value = mock_response
+
+        from app.ingestion.embedder import GeminiEmbedder
+        embedder = GeminiEmbedder(api_key="fake", model="gemini-embedding-2")
+        result = embedder.embed_video(b"fakevideo", "video/mp4")
+
+        assert result == [0.4, 0.5, 0.6]
+
+
+def test_embed_pdf_chunk_returns_vector():
+    with patch("app.ingestion.embedder.genai.Client") as MockClient:
+        mock_response = MagicMock()
+        mock_response.embeddings = [MagicMock(values=[0.7, 0.8, 0.9])]
+        MockClient.return_value.models.embed_content.return_value = mock_response
+
+        from app.ingestion.embedder import GeminiEmbedder
+        embedder = GeminiEmbedder(api_key="fake", model="gemini-embedding-2")
+        result = embedder.embed_pdf_chunk(b"fakepdf")
+
+        assert result == [0.7, 0.8, 0.9]
