@@ -652,7 +652,7 @@ git commit -m "feat: add PDFChunker splitting PDFs into 6-page windows for byte 
 - Create: `backend/app/ingestion/audio_processor.py`
 - Create: `backend/tests/test_audio_processor.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Create `backend/tests/test_audio_processor.py`:
 ```python
@@ -707,14 +707,14 @@ def test_transcribe_posts_to_whisper():
     assert result == "transcribed text"
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```
 cd backend && uv run pytest tests/test_audio_processor.py -v
 ```
 Expected: FAIL — `ModuleNotFoundError`
 
-- [ ] **Step 3: Create audio_processor.py**
+- [x] **Step 3: Create audio_processor.py**
 
 Create `backend/app/ingestion/audio_processor.py`:
 ```python
@@ -813,14 +813,14 @@ class AudioProcessor:
             os.unlink(input_path)
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```
 cd backend && uv run pytest tests/test_audio_processor.py -v
 ```
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/ingestion/audio_processor.py backend/tests/test_audio_processor.py
@@ -835,7 +835,7 @@ git commit -m "feat: add AudioProcessor with ffmpeg chunking and Whisper transcr
 - Create: `backend/app/ingestion/video_processor.py`
 - Create: `backend/tests/test_video_processor.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Create `backend/tests/test_video_processor.py`:
 ```python
@@ -876,14 +876,14 @@ def test_video_chunk_has_correct_fields():
     assert chunk.end_sec == 115
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```
 cd backend && uv run pytest tests/test_video_processor.py -v
 ```
 Expected: FAIL — `ModuleNotFoundError`
 
-- [ ] **Step 3: Create video_processor.py**
+- [x] **Step 3: Create video_processor.py**
 
 Create `backend/app/ingestion/video_processor.py`:
 ```python
@@ -967,14 +967,14 @@ class VideoProcessor:
             os.unlink(input_path)
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```
 cd backend && uv run pytest tests/test_video_processor.py -v
 ```
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/ingestion/video_processor.py backend/tests/test_video_processor.py
