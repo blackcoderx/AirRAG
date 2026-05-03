@@ -290,7 +290,7 @@ git commit -m "feat: add MinIO and Whisper config settings with defaults"
 - Create: `backend/app/storage/minio_client.py`
 - Create: `backend/tests/test_minio_client.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Create `backend/tests/test_minio_client.py`:
 ```python
@@ -350,14 +350,14 @@ def test_ensure_bucket_creates_if_missing():
         mock_instance.make_bucket.assert_called_once_with("new-bucket")
 ```
 
-- [ ] **Step 2: Run to confirm failure**
+- [x] **Step 2: Run to confirm failure**
 
 ```
 cd backend && uv run pytest tests/test_minio_client.py -v
 ```
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.storage'`
 
-- [ ] **Step 3: Create package and implementation**
+- [x] **Step 3: Create package and implementation**
 
 Create `backend/app/storage/__init__.py` (empty file).
 
@@ -405,14 +405,14 @@ class MinIOClient:
         return f"{document_id}/{filename}"
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```
 cd backend && uv run pytest tests/test_minio_client.py -v
 ```
 Expected: PASS (5 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/storage/ backend/tests/test_minio_client.py
