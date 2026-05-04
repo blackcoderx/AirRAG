@@ -1,16 +1,17 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from app.core.database import engine, Base
+
 from app.api.collections import router as collections_router
 from app.api.documents import router as documents_router
 from app.api.query import router as query_router
+from app.core.database import Base, engine
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler - runs on startup/shutdown.
-    
+
     Startup: Create all database tables (collections, documents) if they don't exist.
     Shutdown: (currently no cleanup needed, connections are managed per-request).
     """

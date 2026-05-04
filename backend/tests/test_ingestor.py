@@ -20,7 +20,7 @@ def _make_ingestor():
 
     from app.ingestion.audio_processor import AudioChunk
     audio.process.return_value = [
-        AudioChunk(data=b"seg", mime_type="audio/mpeg", start_sec=0, end_sec=30, transcript="hello")
+        AudioChunk(data=b"seg", mime_type="audio/mpeg", start_sec=0, end_sec=30)
     ]
     video = MagicMock()
 
@@ -28,9 +28,6 @@ def _make_ingestor():
     video.process.return_value = [
         VideoChunk(data=b"vseg", mime_type="video/mp4", start_sec=0, end_sec=50)
     ]
-    video.extract_audio.return_value = b"audiotrack"
-    audio.transcribe.return_value = "spoken words"
-
     pdf_chunker = MagicMock()
     pdf_chunker.chunk.return_value = [(b"pdfchunk", 1, 6)]
 
@@ -63,7 +60,6 @@ def test_ingest_audio_creates_chunks():
     assert count == 1
     payload = store.upsert.call_args[0][4][0]
     assert payload["media_type"] == "audio"
-    assert payload["transcript"] == "hello"
     assert payload["chunk_start_sec"] == 0
 
 
@@ -73,7 +69,9 @@ def test_ingest_video_creates_chunks_with_vision():
     assert count == 1
     payload = store.upsert.call_args[0][4][0]
     assert payload["media_type"] == "video"
-    assert "vision_description" in payload
+    assert payload["vision_description"] == "A red running shoe."
+    assert payload["chunk_start_sec"] == 0
+    assert payload["chunk_end_sec"] == 50
 
 
 def test_ingest_pdf_chunks_by_pages():
