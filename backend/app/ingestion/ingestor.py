@@ -244,29 +244,41 @@ class Ingestor:
         video_chunks = self._video.process(content, mime_type)
         if not video_chunks:
             return 0
-        chunk_ids, embeddings, documents, metadatas = [], [], [], []
+
+        n = len(video_chunks)
+        embeddings: list = [None] * n
+        descriptions: list[str] = [""] * n
+
+        def _embed(i: int, vc) -> tuple:
+            return "embed", i, self._embedder.embed_video(vc.data, vc.mime_type)
+
+        def _describe(i: int, vc) -> tuple:
+            return "describe", i, self._vision.describe(vc.data, vc.mime_type) or ""
+
+        # Embed and describe run concurrently — different services, no contention.
+        # All chunks processed simultaneously; chunk latency = max(embed, describe) ≈ 1-2s.
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = []
+            for i, vc in enumerate(video_chunks):
+                futures.append(pool.submit(_embed, i, vc))
+                futures.append(pool.submit(_describe, i, vc))
+
+            for fut in futures:
+                kind, idx, result = fut.result()
+                if kind == "embed":
+                    embeddings[idx] = result
+                else:
+                    descriptions[idx] = result
+
+        chunk_ids, emb_list, documents, metadatas = [], [], [], []
         for i, vc in enumerate(video_chunks):
-            vision_description = self._vision.describe(vc.data, vc.mime_type)
-            try:
-                audio_bytes = self._video.extract_audio(vc.data)
-                transcript = self._audio.transcribe(audio_bytes, ".mp3")
-            except Exception:
-                transcript = ""
-            embedding = self._embedder.embed_video(vc.data, vc.mime_type)
-            parts = [
-                p
-                for p in [
-                    vision_description,
-                    f"Transcript: {transcript}" if transcript else "",
-                ]
-                if p
-            ]
+            vision_description = descriptions[i]
             doc_text = (
-                "\n\n".join(parts)
-                or f"[VIDEO: {filename} {vc.start_sec}-{vc.end_sec}s]"
+                vision_description
+                or f"[VIDEO: {filename} {_fmt_sec(vc.start_sec)}–{_fmt_sec(vc.end_sec)}]"
             )
             chunk_ids.append(f"{document_id}-video-{i}")
-            embeddings.append(embedding)
+            emb_list.append(embeddings[i])
             documents.append(doc_text)
             metadatas.append(
                 {
@@ -279,11 +291,11 @@ class Ingestor:
                     "chunk_start_sec": vc.start_sec,
                     "chunk_end_sec": vc.end_sec,
                     "vision_description": vision_description,
-                    "audio_transcript": transcript,
                     "ingested_at": ingested_at,
                 }
             )
-        self._store.upsert(collection_id, chunk_ids, embeddings, documents, metadatas)
+
+        self._store.upsert(collection_id, chunk_ids, emb_list, documents, metadatas)
         return len(video_chunks)
 
     def _ingest_text(

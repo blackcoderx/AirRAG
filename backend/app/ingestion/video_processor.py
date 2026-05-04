@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 @dataclass
 class VideoChunk:
-    """Represents a segment of video with raw bytes.
+    """Represents a segment of video with raw bytes and timing metadata.
 
     Used by: ingestor.py (_ingest_video) to pass to embedder and vision_enricher.
     """
@@ -19,14 +19,14 @@ class VideoChunk:
 
 
 class VideoProcessor:
-    """Processes video files: segments into chunks, extracts audio for transcription.
+    """Processes video files: segments into chunks for native Gemini embedding.
 
-    Pipeline: Video bytes → segment by time → each chunk gets vision description + audio transcript.
+    Pipeline: Video bytes → segment by time → each chunk embedded + described.
     """
 
-    # 115-second chunks with 5-second overlap (Gemini processes 32 frames per chunk)
-    _CHUNK_DURATION = 115
-    _OVERLAP = 5
+    # 60s chunks: one semantic unit, comfortably under 120s Gemini video embed limit.
+    _CHUNK_DURATION = 60
+    _OVERLAP = 10
 
     def _get_duration(self, input_path: str) -> float:
         """Get video duration in seconds using ffprobe."""
@@ -47,7 +47,11 @@ class VideoProcessor:
         return float(json.loads(result.stdout)["format"]["duration"])
 
     def _extract_video_segment(self, input_path: str, start: int, end: int) -> bytes:
-        """Extract a time segment from video file using ffmpeg (video only, no audio)."""
+        """Extract a time segment from video using ffmpeg.
+
+        -ss before -i = fast seek. -avoid_negative_ts make_zero prevents audio
+        sync drift when cutting at non-keyframe boundaries with stream copy.
+        """
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as out:
             out_path = out.name
         try:
@@ -55,14 +59,11 @@ class VideoProcessor:
                 [
                     "ffmpeg",
                     "-y",
-                    "-i",
-                    input_path,
-                    "-ss",
-                    str(start),
-                    "-to",
-                    str(end),
-                    "-c",
-                    "copy",
+                    "-ss", str(start),
+                    "-i", input_path,
+                    "-t", str(end - start),
+                    "-c", "copy",
+                    "-avoid_negative_ts", "make_zero",
                     out_path,
                 ],
                 capture_output=True,
@@ -71,44 +72,14 @@ class VideoProcessor:
             with open(out_path, "rb") as f:
                 return f.read()
         finally:
-            os.unlink(out_path)
-
-    def extract_audio(self, video_bytes: bytes) -> bytes:
-        "Extract audio track from video bytes using ffmpeg (returns MP3)."
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as inp:
-            inp.write(video_bytes)
-            input_path = inp.name
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as out:
-            out_path = out.name
-        try:
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-y",
-                    "-i",
-                    input_path,
-                    "-vn",
-                    "-acodec",
-                    "libmp3lame",
-                    out_path,
-                ],
-                capture_output=True,
-                check=True,
-            )
-            with open(out_path, "rb") as f:
-                return f.read()
-        finally:
-            os.unlink(input_path)
             os.unlink(out_path)
 
     def process(
         self, video_bytes: bytes, mime_type: str = "video/mp4"
     ) -> list[VideoChunk]:
-        """Process video file: segment into chunks, return VideoChunks.
+        """Segment video into overlapping chunks and return VideoChunks.
 
-        Note: Vision description and audio transcript are added later in ingestor.py.
-        Returns: List of VideoChunk (each with raw video bytes for that time segment).
-        Used by: ingestor.py (_ingest_video).
+        Vision description and embedding are applied later in ingestor.py.
         """
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
             f.write(video_bytes)
