@@ -2,12 +2,11 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.ingestion.audio_processor import AudioProcessor
 from app.ingestion.converter import convert_to_pdf
 from app.ingestion.embedder import GeminiEmbedder
+from app.ingestion.media_chunker import MediaChunker
 from app.ingestion.parser import DocumentParser
 from app.ingestion.pdf_chunker import PDFChunker
-from app.ingestion.video_processor import VideoProcessor
 from app.ingestion.vision_enricher import VisionEnricher
 from app.retrieval.vector_store import QdrantStore
 from app.storage.minio_client import MinIOClient
@@ -16,7 +15,7 @@ def _fmt_sec(sec: int) -> str:
     return f"{sec // 60}:{sec % 60:02d}"
 
 
-SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png"}
 SUPPORTED_PDF_TYPES = {"application/pdf"}
 SUPPORTED_AUDIO_TYPES = {
     "audio/mpeg",
@@ -28,8 +27,6 @@ SUPPORTED_AUDIO_TYPES = {
 SUPPORTED_VIDEO_TYPES = {
     "video/mp4",
     "video/quicktime",
-    "video/x-msvideo",
-    "video/webm",
 }
 SUPPORTED_TEXT_TYPES = {"text/plain", "text/markdown"}
 CONVERTIBLE_TYPES = {
@@ -45,16 +42,16 @@ class Ingestor:
         vector_store: QdrantStore,
         minio_client: MinIOClient,
         vision_enricher: VisionEnricher,
-        audio_processor: AudioProcessor,
-        video_processor: VideoProcessor,
+        audio_chunker: MediaChunker,
+        video_chunker: MediaChunker,
         pdf_chunker: PDFChunker,
     ):
         self._embedder = embedder
         self._store = vector_store
         self._minio = minio_client
         self._vision = vision_enricher
-        self._audio = audio_processor
-        self._video = video_processor
+        self._audio_chunker = audio_chunker
+        self._video_chunker = video_chunker
         self._pdf_chunker = pdf_chunker
         self._parser = DocumentParser()
 
@@ -201,18 +198,17 @@ class Ingestor:
         blob_url,
         ingested_at,
     ) -> int:
-        audio_chunks = self._audio.process(content, mime_type)
-        if not audio_chunks:
+        media_chunks = self._audio_chunker.process(content, mime_type)
+        if not media_chunks:
             return 0
-        chunk_ids = [f"{document_id}-audio-{i}" for i in range(len(audio_chunks))]
-        # Parallel embedding — Gemini API calls are the bottleneck; 6 workers ~4x speedup
+        chunk_ids = [f"{document_id}-audio-{i}" for i in range(len(media_chunks))]
         with ThreadPoolExecutor(max_workers=6) as pool:
             embeddings = list(
-                pool.map(lambda c: self._embedder.embed_audio(c.data, c.mime_type), audio_chunks)
+                pool.map(lambda c: self._embedder.embed_audio(c.data, c.mime_type), media_chunks)
             )
         documents = [
             f"[AUDIO: {filename} {_fmt_sec(c.start_sec)}–{_fmt_sec(c.end_sec)}]"
-            for c in audio_chunks
+            for c in media_chunks
         ]
         metadatas = [
             {
@@ -226,10 +222,10 @@ class Ingestor:
                 "chunk_end_sec": c.end_sec,
                 "ingested_at": ingested_at,
             }
-            for i, c in enumerate(audio_chunks)
+            for i, c in enumerate(media_chunks)
         ]
         self._store.upsert(collection_id, chunk_ids, embeddings, documents, metadatas)
-        return len(audio_chunks)
+        return len(media_chunks)
 
     def _ingest_video(
         self,
@@ -241,27 +237,25 @@ class Ingestor:
         blob_url,
         ingested_at,
     ) -> int:
-        video_chunks = self._video.process(content, mime_type)
-        if not video_chunks:
+        media_chunks = self._video_chunker.process(content, mime_type)
+        if not media_chunks:
             return 0
 
-        n = len(video_chunks)
+        n = len(media_chunks)
         embeddings: list = [None] * n
         descriptions: list[str] = [""] * n
 
-        def _embed(i: int, vc) -> tuple:
-            return "embed", i, self._embedder.embed_video(vc.data, vc.mime_type)
+        def _embed(i: int, mc) -> tuple:
+            return "embed", i, self._embedder.embed_video(mc.data, mc.mime_type)
 
-        def _describe(i: int, vc) -> tuple:
-            return "describe", i, self._vision.describe(vc.data, vc.mime_type) or ""
+        def _describe(i: int, mc) -> tuple:
+            return "describe", i, self._vision.describe(mc.data, mc.mime_type) or ""
 
-        # Embed and describe run concurrently — different services, no contention.
-        # All chunks processed simultaneously; chunk latency = max(embed, describe) ≈ 1-2s.
         with ThreadPoolExecutor(max_workers=8) as pool:
             futures = []
-            for i, vc in enumerate(video_chunks):
-                futures.append(pool.submit(_embed, i, vc))
-                futures.append(pool.submit(_describe, i, vc))
+            for i, mc in enumerate(media_chunks):
+                futures.append(pool.submit(_embed, i, mc))
+                futures.append(pool.submit(_describe, i, mc))
 
             for fut in futures:
                 kind, idx, result = fut.result()
@@ -271,11 +265,11 @@ class Ingestor:
                     descriptions[idx] = result
 
         chunk_ids, emb_list, documents, metadatas = [], [], [], []
-        for i, vc in enumerate(video_chunks):
+        for i, mc in enumerate(media_chunks):
             vision_description = descriptions[i]
             doc_text = (
                 vision_description
-                or f"[VIDEO: {filename} {_fmt_sec(vc.start_sec)}–{_fmt_sec(vc.end_sec)}]"
+                or f"[VIDEO: {filename} {_fmt_sec(mc.start_sec)}–{_fmt_sec(mc.end_sec)}]"
             )
             chunk_ids.append(f"{document_id}-video-{i}")
             emb_list.append(embeddings[i])
@@ -288,15 +282,15 @@ class Ingestor:
                     "mime_type": mime_type,
                     "chunk_index": i,
                     "blob_url": blob_url,
-                    "chunk_start_sec": vc.start_sec,
-                    "chunk_end_sec": vc.end_sec,
+                    "chunk_start_sec": mc.start_sec,
+                    "chunk_end_sec": mc.end_sec,
                     "vision_description": vision_description,
                     "ingested_at": ingested_at,
                 }
             )
 
         self._store.upsert(collection_id, chunk_ids, emb_list, documents, metadatas)
-        return len(video_chunks)
+        return len(media_chunks)
 
     def _ingest_text(
         self,

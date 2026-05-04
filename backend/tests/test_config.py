@@ -25,6 +25,9 @@ def test_minio_defaults():
     assert s.minio_public_url == "http://localhost:9000"
 
 
-def test_whisper_defaults():
+def test_chunking_defaults():
     s = Settings(_env_file=None)
-    assert s.whisper_server_url == "http://localhost:9010"
+    assert s.audio_chunk_duration == 150
+    assert s.video_chunk_duration == 60
+    assert s.audio_overlap == 15
+    assert s.video_overlap == 15

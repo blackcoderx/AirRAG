@@ -16,17 +16,15 @@ def _make_ingestor():
     minio.upload.return_value = "http://localhost:9000/airrag/doc1/file.jpg"
     vision = MagicMock()
     vision.describe.return_value = "A red running shoe."
-    audio = MagicMock()
 
-    from app.ingestion.audio_processor import AudioChunk
-    audio.process.return_value = [
-        AudioChunk(data=b"seg", mime_type="audio/mpeg", start_sec=0, end_sec=30)
+    from app.ingestion.media_chunker import MediaChunk
+    audio_chunker = MagicMock()
+    audio_chunker.process.return_value = [
+        MediaChunk(data=b"seg", mime_type="audio/mpeg", start_sec=0, end_sec=30)
     ]
-    video = MagicMock()
-
-    from app.ingestion.video_processor import VideoChunk
-    video.process.return_value = [
-        VideoChunk(data=b"vseg", mime_type="video/mp4", start_sec=0, end_sec=50)
+    video_chunker = MagicMock()
+    video_chunker.process.return_value = [
+        MediaChunk(data=b"vseg", mime_type="video/mp4", start_sec=0, end_sec=50)
     ]
     pdf_chunker = MagicMock()
     pdf_chunker.chunk.return_value = [(b"pdfchunk", 1, 6)]
@@ -36,8 +34,8 @@ def _make_ingestor():
         vector_store=store,
         minio_client=minio,
         vision_enricher=vision,
-        audio_processor=audio,
-        video_processor=video,
+        audio_chunker=audio_chunker,
+        video_chunker=video_chunker,
         pdf_chunker=pdf_chunker,
     ), store, minio
 

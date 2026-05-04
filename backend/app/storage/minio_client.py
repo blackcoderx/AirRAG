@@ -43,6 +43,32 @@ class MinIOClient:
         )
         return f"{self._public_url}/{self._bucket}/{object_name}"
 
+    def download(self, object_name: str) -> bytes:
+        "Download full file bytes from MinIO."
+        response = self._client.get_object(self._bucket, object_name)
+        try:
+            return response.read()
+        finally:
+            response.close()
+            response.release_conn()
+
+    def download_range(self, object_name: str, start: int, end: int) -> bytes:
+        """Download a byte range from MinIO (start inclusive, end exclusive)."""
+        response = self._client.get_object(
+            self._bucket, object_name, offset=start, length=end - start
+        )
+        try:
+            return response.read()
+        finally:
+            response.close()
+            response.release_conn()
+
+    def stat(self, object_name: str) -> tuple[int, str]:
+        """Return (size, content_type) for an object."""
+        info = self._client.stat_object(self._bucket, object_name)
+        content_type = info.content_type or "application/octet-stream"
+        return info.size, content_type
+
     def delete(self, object_name: str) -> None:
         """Delete file from MinIO (called when document is deleted)."""
         self._client.remove_object(self._bucket, object_name)

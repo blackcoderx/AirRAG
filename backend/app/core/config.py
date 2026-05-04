@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     Used by: database.py (DB URL), embedder.py (Gemini API key + model),
     generator.py (Gemini model), vector_store.py (Qdrant URL),
-    MinIOClient (storage credentials), audio_processor.py (Whisper URL).
+    MinIOClient (storage credentials), media_chunker.py (chunk durations).
     """
 
     model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -28,7 +28,10 @@ class Settings(BaseSettings):
     minio_bucket: str = "airrag"
     minio_secure: bool = False
     minio_public_url: str = "http://localhost:9000"
-    whisper_server_url: str = "http://localhost:9010"
+    audio_chunk_duration: int = 150
+    video_chunk_duration: int = 60
+    audio_overlap: int = 15
+    video_overlap: int = 15
 
 
 # Singleton settings instance imported by all modules needing configuration

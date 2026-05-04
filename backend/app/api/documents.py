@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.ingestion.audio_processor import AudioProcessor
 from app.ingestion.embedder import GeminiEmbedder
 from app.ingestion.ingestor import Ingestor
+from app.ingestion.media_chunker import MediaChunker
 from app.ingestion.pdf_chunker import PDFChunker
-from app.ingestion.video_processor import VideoProcessor
 from app.ingestion.vision_enricher import VisionEnricher
 from app.models.db_models import Collection, Document
 from app.models.schemas import DocumentResponse
@@ -25,7 +25,7 @@ def _make_ingestor() -> Ingestor:
     - QdrantStore (for vector storage)
     - MinIOClient (for raw file storage)
     - VisionEnricher (for image/video descriptions)
-    - Audio/Video processors (for media chunking)
+    - MediaChunker for audio and video (configurable chunk sizes)
     - PDFChunker (for splitting PDFs into 6-page segments)
     
     This per-request construction keeps the API layer stateless.
@@ -42,8 +42,18 @@ def _make_ingestor() -> Ingestor:
             public_url=settings.minio_public_url,
         ),
         vision_enricher=VisionEnricher(api_key=settings.gemini_api_key, model=settings.gemini_gen_model),
-        audio_processor=AudioProcessor(),
-        video_processor=VideoProcessor(),
+        audio_chunker=MediaChunker(
+            chunk_duration=settings.audio_chunk_duration,
+            overlap=settings.audio_overlap,
+            hard_limit=180,
+            media_type="audio",
+        ),
+        video_chunker=MediaChunker(
+            chunk_duration=settings.video_chunk_duration,
+            overlap=settings.video_overlap,
+            hard_limit=120,
+            media_type="video",
+        ),
         pdf_chunker=PDFChunker(),
     )
 
@@ -55,7 +65,7 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     """Upload and ingest a document into a collection.
-    
+
     Flow:
     1. Validate collection exists
     2. Create Document record with "processing" status
@@ -83,7 +93,7 @@ async def upload_document(
         chunk_count = _make_ingestor().ingest(
             collection_id=collection_id,
             document_id=doc.id,
-            filename=file.filename,
+            filename=file.filename or "",
             content_type=content_type,
             content=content,
         )
@@ -122,3 +132,68 @@ def delete_document(
     _make_ingestor().delete_document(collection_id, document_id, doc.filename or "")
     db.delete(doc)
     db.commit()
+
+
+@router.get("/{document_id}/media")
+def stream_document_media(
+    collection_id: str,
+    document_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Stream the original media file from MinIO with Range request support.
+
+    Supports HTTP Range headers for seeking in audio/video players.
+    Returns 206 Partial Content for range requests, 200 OK for full file.
+    """
+    doc = db.get(Document, document_id)
+    if not doc or doc.collection_id != collection_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    minio = MinIOClient(
+        endpoint=settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        bucket=settings.minio_bucket,
+        secure=settings.minio_secure,
+        public_url=settings.minio_public_url,
+    )
+    object_name = MinIOClient.object_name(document_id, doc.filename or "")
+    total_size, content_type = minio.stat(object_name)
+    range_header = request.headers.get("range")
+
+    if range_header:
+        try:
+            range_str = range_header.replace("bytes=", "").strip()
+            range_start_str, range_end_str = range_str.split("-", 1)
+            range_start = int(range_start_str)
+            range_end = int(range_end_str) if range_end_str else total_size - 1
+            range_end = min(range_end, total_size - 1)
+        except (ValueError, IndexError):
+            raise HTTPException(status_code=416, detail="Invalid Range header")
+
+        chunk_size = range_end - range_start + 1
+        data = minio.download_range(object_name, range_start, range_end + 1)
+
+        headers = {
+            "Content-Range": f"bytes {range_start}-{range_end}/{total_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(chunk_size),
+            "Content-Type": content_type,
+        }
+        return StreamingResponse(
+            iter([data]),
+            status_code=206,
+            headers=headers,
+        )
+
+    data = minio.download(object_name)
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(total_size),
+        "Content-Type": content_type,
+    }
+    return StreamingResponse(
+        iter([data]),
+        headers=headers,
+    )
